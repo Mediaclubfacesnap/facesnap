@@ -1,0 +1,39 @@
+# Next.js / React
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Python caching & environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+
+# Local configuration files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Databases and storage
+*.db
+*.sqlite
+*.sqlite3
+storage/
+temp/
+
+# Logs and system files
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

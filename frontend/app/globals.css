@@ -1,0 +1,543 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ============================================
+   DESIGN TOKENS
+   ============================================ */
+:root {
+  /* Background Layer */
+  --color-bg:         #030712;
+  --color-surface:    #0a0f1a;
+  --color-card:       #111827;
+  --color-elevated:   #1f2937;
+
+  /* Accent Colors */
+  --color-primary:    #06b6d4;
+  --color-secondary:  #f43f5e;
+  --color-tertiary:   #a78bfa;
+  --color-success:    #10b981;
+  --color-warning:    #f59e0b;
+
+  /* Text */
+  --color-text:       #f9fafb;
+  --color-text-2:     #9ca3af;
+  --color-text-3:     #6b7280;
+
+  /* Borders */
+  --border-subtle:    rgba(255, 255, 255, 0.06);
+  --border-default:   rgba(255, 255, 255, 0.10);
+  --border-accent:    rgba(6, 182, 212, 0.30);
+
+  /* Glass */
+  --glass-bg:         rgba(17, 24, 39, 0.70);
+  --glass-blur:       16px;
+
+  /* Radius */
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  16px;
+  --radius-xl:  24px;
+  --radius-2xl: 32px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ============================================
+   ACCESSIBILITY UTILITIES
+   ============================================ */
+
+/* Screen reader only — visually hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Focus visible ring for keyboard users */
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip to content link */
+.skip-to-content {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  padding: 12px 24px;
+  background: var(--color-primary);
+  color: var(--color-bg);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+  transition: top 0.2s ease;
+  text-decoration: none;
+}
+.skip-to-content:focus {
+  top: 16px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   PREMIUM SCROLLBARS
+   ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 99px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.5);
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+
+/* ============================================
+   GLASSMORPHISM PANELS (Refined)
+   ============================================ */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.02) inset;
+}
+
+.glass-panel-cyan {
+  background: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  border: 1px solid rgba(6, 182, 212, 0.15);
+  box-shadow: 
+    0 4px 32px rgba(6, 182, 212, 0.06),
+    inset 0 1px 0 rgba(6, 182, 212, 0.08);
+}
+
+.glass-panel-rose {
+  background: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  box-shadow: 
+    0 4px 32px rgba(244, 63, 94, 0.06),
+    inset 0 1px 0 rgba(244, 63, 94, 0.08);
+}
+
+/* Legacy alias */
+.glass-panel-red {
+  background: rgba(17, 24, 39, 0.65);
+  backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+  border: 1px solid rgba(244, 63, 94, 0.15);
+  box-shadow: 
+    0 4px 32px rgba(244, 63, 94, 0.06),
+    inset 0 1px 0 rgba(244, 63, 94, 0.08);
+}
+
+/* ============================================
+   GLOW TEXT UTILITIES (Softer)
+   ============================================ */
+.glow-text-cyan {
+  text-shadow: 0 0 16px rgba(6, 182, 212, 0.3), 0 0 40px rgba(6, 182, 212, 0.08);
+}
+
+.glow-text-red {
+  text-shadow: 0 0 16px rgba(244, 63, 94, 0.3), 0 0 40px rgba(244, 63, 94, 0.08);
+}
+
+/* ============================================
+   GLOW BUTTON UTILITIES (Refined)
+   ============================================ */
+.glow-btn-cyan,
+.glow-btn-primary {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glow-btn-cyan:hover,
+.glow-btn-primary:hover {
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.25), 0 4px 16px rgba(6, 182, 212, 0.1);
+  transform: translateY(-1px);
+}
+
+.glow-btn-red,
+.glow-btn-danger {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glow-btn-red:hover,
+.glow-btn-danger:hover {
+  box-shadow: 0 0 20px rgba(244, 63, 94, 0.25), 0 4px 16px rgba(244, 63, 94, 0.1);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   HERO BUTTON HOVER EFFECTS
+   ============================================ */
+
+/* Find My Photos — AI scan sweep */
+.hero-btn-scan {
+  position: relative;
+  overflow: hidden;
+}
+.hero-btn-scan::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(6, 182, 212, 0.12),
+    transparent
+  );
+  transition: left 0s;
+}
+.hero-btn-scan:hover::before {
+  left: 100%;
+  transition: left 0.8s ease;
+}
+.hero-btn-scan::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow: inset 0 0 16px rgba(6, 182, 212, 0.15), 0 0 24px rgba(6, 182, 212, 0.1);
+  transition: opacity 0.3s ease;
+}
+.hero-btn-scan:hover::after {
+  opacity: 1;
+}
+
+/* Create Event — upload pulse effect */
+.hero-btn-upload {
+  position: relative;
+  overflow: hidden;
+}
+.hero-btn-upload::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  background: radial-gradient(circle at center, rgba(244, 63, 94, 0.08) 0%, transparent 70%);
+  transition: opacity 0.3s ease;
+}
+.hero-btn-upload:hover::before {
+  opacity: 1;
+  animation: uploadPulse 1.5s ease-in-out infinite;
+}
+
+/* ============================================
+   CARD HOVER UTILITY
+   ============================================ */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(6, 182, 212, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(6, 182, 212, 0.1);
+}
+
+/* ============================================
+   BACKGROUND MESH GRADIENTS (Simplified)
+   ============================================ */
+.mesh-gradient-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -20;
+  background: var(--color-bg);
+  overflow: hidden;
+}
+
+.mesh-glow-1 {
+  position: absolute;
+  top: -20%;
+  left: -10%;
+  width: 45vw;
+  height: 45vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.04) 0%, rgba(0,0,0,0) 70%);
+  filter: blur(80px);
+  animation: mesh-move 30s ease-in-out infinite;
+}
+
+.mesh-glow-2 {
+  position: absolute;
+  bottom: -20%;
+  right: -10%;
+  width: 50vw;
+  height: 50vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.035) 0%, rgba(0,0,0,0) 70%);
+  filter: blur(100px);
+  animation: mesh-move 35s ease-in-out infinite reverse;
+}
+
+/* ============================================
+   HOW IT WORKS — STEP CONNECTOR
+   ============================================ */
+.step-connector {
+  position: relative;
+}
+.step-connector::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -24px;
+  width: 48px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(6, 182, 212, 0.3), rgba(6, 182, 212, 0.02));
+  transform: translateY(-50%);
+}
+
+/* ============================================
+   AI VISUALIZATION — NEURAL NODE
+   ============================================ */
+.neural-node {
+  position: relative;
+}
+.neural-node::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+  animation: neuralPulse 3s ease-in-out infinite;
+}
+
+/* ============================================
+   GRADIENT TEXT UTILITIES
+   ============================================ */
+.text-gradient-primary {
+  background: linear-gradient(135deg, #06b6d4 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-gradient-rainbow,
+.text-gradient-figma {
+  background: linear-gradient(
+    90deg, 
+    #f43f5e 0%, 
+    #ec4899 25%, 
+    #a78bfa 50%, 
+    #06b6d4 75%, 
+    #10b981 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gradientShift 12s ease infinite;
+}
+
+/* ============================================
+   MARQUEE ANIMATIONS
+   ============================================ */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 60s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes marquee-reverse {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+.animate-marquee-reverse {
+  animation: marquee-reverse 50s linear infinite;
+}
+.animate-marquee-reverse:hover {
+  animation-play-state: paused;
+}
+
+/* ============================================
+   KEYFRAME ANIMATIONS
+   ============================================ */
+@keyframes mesh-move {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(3%, -3%) scale(1.05); }
+}
+
+@keyframes neuralPulse {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.2); }
+}
+
+@keyframes uploadPulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+@keyframes scanLine {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+
+@keyframes fadeInUp {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes sweep {
+  0% { left: -100%; opacity: 0.6; }
+  100% { left: 100%; opacity: 0; }
+}
+
+@keyframes spin_30s {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================
+   BENTO GRID UTILITIES
+   ============================================ */
+.bento-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(12, 1fr);
+}
+
+.bento-card {
+  position: relative;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-default);
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bento-card:hover {
+  border-color: rgba(6, 182, 212, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.magic-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: radial-gradient(
+    circle at var(--mx, 50%) var(--my, 50%),
+    rgba(6, 182, 212, 0.3) 0%,
+    transparent 50%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.bento-card:hover .magic-border::before {
+  opacity: 1;
+}
+
+/* ============================================
+   DOT PATTERN BACKGROUND
+   ============================================ */
+.bg-dot-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ============================================
+   LINE CLAMP UTILITIES
+   ============================================ */
+.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ============================================
+   TOAST SWEEP ANIMATION
+   ============================================ */
+@keyframes toast-enter {
+  from { 
+    opacity: 0;
+    transform: translateX(24px) scale(0.96);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
