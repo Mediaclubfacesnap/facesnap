@@ -27,12 +27,13 @@ Make sure you have the following installed:
 ### Step 1: Clone & Configure Environment
 If you haven't already, make sure your `.env` variables are correctly configured in the `backend/` and `frontend/` folders or root workspace. 
 
-For the backend, ensure your PostgreSQL connection string in `backend/app/config.py` or `.env` matches your Supabase database instance:
+For the backend, ensure your PostgreSQL connection string in `.env` matches your Supabase Connection Pooler instance:
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres:[YOUR_PASSWORD]@db.bcahxnvuodsslmeqdnin.supabase.co:5432/postgres
+DATABASE_URL=postgresql+asyncpg://postgres.bcahxnvuodsslmeqdnin:[YOUR_PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
 SUPABASE_URL=https://bcahxnvuodsslmeqdnin.supabase.co
 SUPABASE_KEY=[YOUR_SUPABASE_SERVICE_ROLE_KEY]
 ```
+
 
 ---
 
@@ -51,8 +52,9 @@ SUPABASE_KEY=[YOUR_SUPABASE_SERVICE_ROLE_KEY]
 3. **Initialize the Database Schema**:
    Run the database migration and setup script to deploy the tables, unique constraints, and the fast HNSW index:
    ```bash
-   python setup_db.py
+   python ../setup_db.py
    ```
+
 
 4. **Launch the FastAPI Server**:
    Start the API server on port `8000` with hot-reload enabled:
