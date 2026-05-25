@@ -24,14 +24,44 @@ Make sure you have the following installed:
 
 ---
 
-### Step 1: Clone & Configure Environment
-If you haven't already, make sure your `.env` variables are correctly configured in the `backend/` and `frontend/` folders or root workspace. 
+### Step 1: Configure Environment Variables
 
-For the backend, ensure your PostgreSQL connection string in `.env` matches your Supabase Connection Pooler instance:
+To make setting up as simple as possible, all confusing `.env.example` and `.env.local.example` templates have been removed. Instead, the actual configuration files are provided directly in the workspace.
+
+Ensure the following two files are configured with your credentials:
+
+#### 1. Root Database & API Configuration (`.env`)
+Located in the project root directory. This configures the FastAPI backend, migrations, and Supabase connections:
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres.bcahxnvuodsslmeqdnin:[YOUR_PASSWORD]@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres
-SUPABASE_URL=https://bcahxnvuodsslmeqdnin.supabase.co
-SUPABASE_KEY=[YOUR_SUPABASE_SERVICE_ROLE_KEY]
+# GitHub Personal Access Token (for remote commands & repository actions)
+GITHUB_TOKEN="your_github_token_here"
+
+# Supabase Access and Project Credentials
+SUPABASE_ACCESS_TOKEN="your_supabase_token_here"
+SUPABASE_PROJECT_NAME="your_supabase_project_name_here"
+SUPABASE_DB_PASSWORD="your_supabase_db_password_here"
+
+# pgvector Database Connection string (uses Supabase transaction pooler on port 6543)
+# Format: postgresql+asyncpg://postgres.[PROJECT_REF]:[PASSWORD]@[POOLER_HOST]:6543/postgres
+DATABASE_URL="postgresql+asyncpg://postgres.bcahxnvuodsslmeqdnin:Mediaclubfacesnap@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
+
+# JWT Authentication Config
+JWT_SECRET="your_jwt_secret_key_here"
+JWT_ALGORITHM="HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# Supabase Client API Config
+SUPABASE_URL="https://[PROJECT_REF].supabase.co"
+SUPABASE_KEY="your_supabase_service_role_key_here"
+SUPABASE_BUCKET="facesnap-memories"
+```
+
+#### 2. Frontend Configuration (`frontend/.env.local`)
+Located inside the `frontend/` directory. This tells the Next.js frontend where to find the backend API:
+```env
+# The base URL of the FastAPI Backend Server
+# Defaults to http://localhost:8000 in local development
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 
