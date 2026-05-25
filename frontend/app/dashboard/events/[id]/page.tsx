@@ -48,7 +48,7 @@ export default function PublicEventDetailsPage() {
 
   const fetchEvent = async () => {
     try {
-      const eventRes = await fetch(`http://localhost:8000/api/v1/events/${eventId}`);
+      const eventRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${eventId}`);
       if (!eventRes.ok) throw new Error("Event not found");
       const eventData = await eventRes.json();
       setEvent(eventData);

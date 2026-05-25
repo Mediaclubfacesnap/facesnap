@@ -57,7 +57,7 @@ export default function MatchGallery() {
 
       // 2. Fetch directly from backend results endpoint as robust persistence fallback
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/verification/results/${eventId}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/verification/results/${eventId}`, {
           headers: {
             "Authorization": `Bearer ${token}`
           }
@@ -102,7 +102,7 @@ export default function MatchGallery() {
       .map((p) => p.storage_path);
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/verification/download", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/verification/download`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

@@ -76,18 +76,18 @@ export default function PublicCommunityDetails() {
 
   const fetchData = async () => {
     try {
-      const commRes = await fetch(`http://localhost:8000/api/v1/communities/${communityId}`);
+      const commRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}`);
       if (!commRes.ok) throw new Error("Community not found.");
       const commData = await commRes.json();
       setCommunity(commData);
 
-      const rolesRes = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/roles`);
+      const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/roles`);
       if (rolesRes.ok) {
         const rolesData = await rolesRes.json();
         setRoles(rolesData);
       }
 
-      const eventsRes = await fetch(`http://localhost:8000/api/v1/events/community/${communityId}`);
+      const eventsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/community/${communityId}`);
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
         setEvents(eventsData);
@@ -111,7 +111,7 @@ export default function PublicCommunityDetails() {
     setShowMoreMenu(false);
     setRequestSentAlert(false);
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/requests`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/requests`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

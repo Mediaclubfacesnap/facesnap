@@ -68,11 +68,11 @@ export default function DiscoverPage() {
   const fetchData = async () => {
     try {
       const [commRes, rolesRes, starsRes] = await Promise.all([
-        fetch("http://localhost:8000/api/v1/communities/"),
-        fetch("http://localhost:8000/api/v1/communities/my-roles", {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-roles`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch("http://localhost:8000/api/v1/communities/my-stars", {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-stars`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -95,7 +95,7 @@ export default function DiscoverPage() {
 
   const toggleStar = async (communityId: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/star`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/star`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -116,7 +116,7 @@ export default function DiscoverPage() {
     setCreateError("");
 
     try {
-      const res = await fetch("http://localhost:8000/api/v1/communities/", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -59,7 +59,7 @@ export default function Signup() {
 
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/auth/check-username?username=@${formatted}`);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/check-username?username=@${formatted}`);
         if (res.ok) {
           const data = await res.json();
           if (data.available) {
@@ -111,7 +111,7 @@ export default function Signup() {
     }
 
     try {
-      const response = await fetch("http://localhost:8000/api/v1/auth/signup", {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 

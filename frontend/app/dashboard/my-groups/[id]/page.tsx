@@ -171,10 +171,10 @@ export default function MyGroupWorkspace() {
     if (!silent) setRecognitionLoading(true);
     try {
       const [historyRes, statsRes] = await Promise.all([
-        fetch(`http://localhost:8000/api/v1/verification/history/${communityId}`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/verification/history/${communityId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`http://localhost:8000/api/v1/verification/stats/${communityId}`, {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/verification/stats/${communityId}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -257,7 +257,7 @@ export default function MyGroupWorkspace() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const uploadRes = await fetch("http://localhost:8000/api/v1/uploads/banner", {
+      const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/uploads/banner`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -270,7 +270,7 @@ export default function MyGroupWorkspace() {
 
       const { banner_url } = await uploadRes.json();
 
-      const updateRes = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/banner`, {
+      const updateRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/banner`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -303,7 +303,7 @@ export default function MyGroupWorkspace() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const uploadRes = await fetch("http://localhost:8000/api/v1/uploads/banner", {
+      const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/uploads/banner`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -316,7 +316,7 @@ export default function MyGroupWorkspace() {
 
       const { banner_url } = await uploadRes.json();
 
-      const updateRes = await fetch(`http://localhost:8000/api/v1/events/${selectedEvent.id}/banner`, {
+      const updateRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${selectedEvent.id}/banner`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -348,14 +348,14 @@ export default function MyGroupWorkspace() {
   const fetchData = async () => {
     try {
       // 1. Fetch all communities to populate sidebar groups list
-      const allCommRes = await fetch("http://localhost:8000/api/v1/communities/");
+      const allCommRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/`);
       if (allCommRes.ok) {
         const allCommData = await allCommRes.json();
         setCommunities(allCommData);
       }
 
       // 2. Fetch my roles map
-      const myRolesRes = await fetch("http://localhost:8000/api/v1/communities/my-roles", {
+      const myRolesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-roles`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       let verifiedRole = "";
@@ -374,20 +374,20 @@ export default function MyGroupWorkspace() {
       }
 
       // 4. Fetch selected community metadata
-      const commRes = await fetch(`http://localhost:8000/api/v1/communities/${communityId}`);
+      const commRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}`);
       if (!commRes.ok) throw new Error("Community workspace not found.");
       const commData = await commRes.json();
       setCommunity(commData);
 
       // 5. Fetch community collaborator roles list
-      const rolesRes = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/roles`);
+      const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/roles`);
       if (rolesRes.ok) {
         const rolesData = await rolesRes.json();
         setRoles(rolesData);
       }
 
       // 6. Fetch events
-      const eventsRes = await fetch(`http://localhost:8000/api/v1/events/community/${communityId}`);
+      const eventsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/community/${communityId}`);
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
         setEvents(eventsData);
@@ -396,7 +396,7 @@ export default function MyGroupWorkspace() {
       // 7. Fetch Requests & Invitations if Host/Admin
       const isPrivileged = ["host", "admin"].includes(verifiedRole);
       if (isPrivileged) {
-        const reqsRes = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/requests`, {
+        const reqsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/requests`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         if (reqsRes.ok) {
@@ -404,7 +404,7 @@ export default function MyGroupWorkspace() {
           setRequests(reqsData);
         }
 
-        const invitesRes = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/invitations`, {
+        const invitesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/invitations`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         if (invitesRes.ok) {
@@ -413,7 +413,7 @@ export default function MyGroupWorkspace() {
         }
 
         // 8. Fetch recognition stats for analytics
-        const statsRes = await fetch(`http://localhost:8000/api/v1/verification/stats/${communityId}`, {
+        const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/verification/stats/${communityId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (statsRes.ok) {
@@ -449,7 +449,7 @@ export default function MyGroupWorkspace() {
         const formData = new FormData();
         formData.append("file", eventBannerFile);
 
-        const uploadRes = await fetch("http://localhost:8000/api/v1/uploads/banner", {
+        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/uploads/banner`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,
@@ -464,7 +464,7 @@ export default function MyGroupWorkspace() {
         finalBannerUrl = banner_url;
       }
 
-      const response = await fetch(`http://localhost:8000/api/v1/events/${communityId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${communityId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -524,7 +524,7 @@ export default function MyGroupWorkspace() {
           const formData = new FormData();
           formData.append("files", file);
 
-          const res = await fetch(`http://localhost:8000/api/v1/uploads/${selectedEvent.id}`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/uploads/${selectedEvent.id}`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}` },
             body: formData,
@@ -575,7 +575,7 @@ export default function MyGroupWorkspace() {
 
   const handleReviewRequest = async (requestId: string, status: "approved" | "rejected") => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/requests/${requestId}/review`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/requests/${requestId}/review`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -594,7 +594,7 @@ export default function MyGroupWorkspace() {
 
   const handleUpdateMemberRole = async (userId: string, newRole: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/members/${userId}/role`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/members/${userId}/role`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -616,7 +616,7 @@ export default function MyGroupWorkspace() {
   const handleRemoveMember = async (userId: string) => {
     if (!confirm("Are you sure you want to remove this member from the group workspace?")) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/members/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/members/${userId}`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -648,7 +648,7 @@ export default function MyGroupWorkspace() {
     if (!confirmDeleteSecond) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/communities/${communityId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -675,7 +675,7 @@ export default function MyGroupWorkspace() {
     const searchUsersDb = async () => {
       setIsSearchingUsers(true);
       try {
-        const res = await fetch(`http://localhost:8000/api/v1/communities/search-users?q=${inviteSearchQuery}`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/search-users?q=${inviteSearchQuery}`, {
           headers: { "Authorization": `Bearer ${token}` }
         });
         if (res.ok) {
@@ -719,7 +719,7 @@ export default function MyGroupWorkspace() {
   const handleSendInvitation = async (username: string) => {
     setInviteSuccessMsg("");
     try {
-      const res = await fetch(`http://localhost:8000/api/v1/communities/${communityId}/invitations`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/invitations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

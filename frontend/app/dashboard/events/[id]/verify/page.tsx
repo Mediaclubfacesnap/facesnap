@@ -87,7 +87,7 @@ export default function FaceVerification() {
 
     const performSingleScan = async () => {
       if (!isMounted) return;
-      if (verificationStatus === "success" || verificationStatus === "failed") return;
+      if ((verificationStatus as string) === "success" || (verificationStatus as string) === "failed") return;
 
       attemptCount++;
       setScanAttempt(attemptCount);
@@ -174,7 +174,7 @@ export default function FaceVerification() {
       const base64Image = canvas.toDataURL("image/jpeg", 0.85);
 
       // Make actual POST request to FastAPI backend
-      const response = await fetch(`http://localhost:8000/api/v1/verification/${eventId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/verification/${eventId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
