@@ -18,7 +18,7 @@ if RAW_DB_URL:
     print("Database connection string dynamically resolved from local .env file!")
 else:
     # Safe static fallback for standard setup
-    DB_URL = "postgresql://postgres:Mediaclubfacesnap@db.bcahxnvuodsslmeqdnin.supabase.co:5432/postgres"
+    DB_URL = "postgresql://postgres.bcahxnvuodsslmeqdnin:Mediaclubfacesnap@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
     print("No DATABASE_URL environment variable resolved. Using standard fallback connection string.")
 
 MIGRATION_SQL = """
@@ -169,7 +169,8 @@ async def run():
 
     print(f"Connecting to Database at {masked_url}...")
     try:
-        conn = await asyncpg.connect(DB_URL, timeout=30)
+        conn = await asyncpg.connect(DB_URL, timeout=30, statement_cache_size=0)
+
     except Exception as e:
         print(f"Error connecting to database: {e}", file=sys.stderr)
         return

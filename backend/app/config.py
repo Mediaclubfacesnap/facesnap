@@ -2,7 +2,7 @@ import os
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:Mediaclubfacesnap@db.bcahxnvuodsslmeqdnin.supabase.co:5432/postgres"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres.bcahxnvuodsslmeqdnin:Mediaclubfacesnap@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
     SUPABASE_URL: str = "https://bcahxnvuodsslmeqdnin.supabase.co"
     SUPABASE_KEY: str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYWh4bnZ1b2Rzc2xtZXFkbmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTUzMzMzNCwiZXhwIjoyMDk1MTA5MzM0fQ.4tWm0p1mxUCfGjoWvV74GD2zW-hbIsWPgl-WZQGgg88"
     SUPABASE_BUCKET: str = "facesnap-memories"
