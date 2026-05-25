@@ -1,8 +1,25 @@
 import asyncio
 import asyncpg
 import sys
+import os
+from dotenv import load_dotenv
 
-DB_URL = "postgresql://postgres:Mediaclubfacesnap@db.bcahxnvuodsslmeqdnin.supabase.co:5432/postgres"
+# Load environment variables from local .env file
+load_dotenv()
+
+# Safely extract Database Connection URL from environment
+RAW_DB_URL = os.getenv("DATABASE_URL")
+if RAW_DB_URL:
+    # asyncpg expects a raw postgresql:// protocol, so we convert any asyncpg-specific prefix
+    if RAW_DB_URL.startswith("postgresql+asyncpg://"):
+        DB_URL = RAW_DB_URL.replace("postgresql+asyncpg://", "postgresql://")
+    else:
+        DB_URL = RAW_DB_URL
+    print("Database connection string dynamically resolved from local .env file!")
+else:
+    # Safe static fallback for standard setup
+    DB_URL = "postgresql://postgres:Mediaclubfacesnap@db.bcahxnvuodsslmeqdnin.supabase.co:5432/postgres"
+    print("No DATABASE_URL environment variable resolved. Using standard fallback connection string.")
 
 MIGRATION_SQL = """
 -- Enable vector extension
@@ -92,7 +109,6 @@ CREATE TABLE photos (
 -- Create Unique Index on event_id and hash where hash is not null
 CREATE UNIQUE INDEX IF NOT EXISTS uq_event_photo_hash ON photos (event_id, hash) WHERE hash IS NOT NULL;
 
-
 -- Create Photo Faces Table (pgvector 512-D vectors)
 CREATE TABLE photo_faces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -102,13 +118,19 @@ CREATE TABLE photo_faces (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Create Verification Sessions Table
+-- Create Verification Sessions Table with complete audit and vector embedding columns
 CREATE TABLE verification_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
     event_id UUID REFERENCES events(id) ON DELETE CASCADE NOT NULL,
     status TEXT CHECK (status IN ('pending', 'verified', 'failed')) DEFAULT 'pending' NOT NULL,
     liveness_score FLOAT DEFAULT 0.0 NOT NULL,
+    matched_photos_count INTEGER DEFAULT 0 NOT NULL,
+    average_confidence FLOAT DEFAULT 0.0 NOT NULL,
+    processing_time_ms INTEGER DEFAULT 0 NOT NULL,
+    ip_address TEXT,
+    device_info TEXT,
+    face_embedding vector(512),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -137,7 +159,15 @@ CREATE INDEX IF NOT EXISTS photo_faces_embedding_idx ON photo_faces USING hnsw (
 """
 
 async def run():
-    print("Connecting to Supabase PostgreSQL at db.bcahxnvuodsslmeqdnin.supabase.co...")
+    # Hide raw password credentials from console output
+    masked_url = DB_URL
+    if "@" in DB_URL:
+        protocol_part, credential_host = DB_URL.split("@", 1)
+        if ":" in protocol_part:
+            protocol, credentials = protocol_part.split(":", 1)
+            masked_url = f"{protocol}:***@{credential_host}"
+
+    print(f"Connecting to Database at {masked_url}...")
     try:
         conn = await asyncpg.connect(DB_URL, timeout=30)
     except Exception as e:
