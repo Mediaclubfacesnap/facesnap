@@ -8,12 +8,13 @@ import hashlib
 import logging
 import anyio
 from app.database import get_db, AsyncSessionLocal
-from app.models import Event, Photo, PhotoFace, User
+from app.models import Event, Photo, PhotoFace, User, BackgroundJob
 from app.schemas import PhotoResponse
 from app.services.storage_service import storage_service
 from app.services.ai_service import AIService
+
 from app.routes.auth import get_current_user
-from app.routes.events import verify_contributor_permission
+from app.services.security_service import security_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/uploads", tags=["Uploads"])
@@ -78,11 +79,14 @@ async def upload_photos(
         )
 
     # Verify authorization
-    has_permission = await verify_contributor_permission(event.community_id, current_user.id, db)
+    from app.routes.communities import check_is_host_or_admin
+    has_permission = await check_is_host_or_admin(event.community_id, current_user.id, db)
+    if current_user.platform_role == "super_admin":
+        has_permission = True
     if not has_permission:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Unauthorized: You must be a host or contributor to upload photos."
+            detail="Only Hosts and Community Admins can upload community media."
         )
 
     # Set event status to uploading
@@ -91,10 +95,15 @@ async def upload_photos(
     uploaded_photos = []
     
     for file in files:
-        if not file.content_type.startswith("image/"):
-            continue # Skip non-images
-            
         file_bytes = await file.read()
+        
+        # Enforce security validation (max 20MB for images)
+        security_service.validate_upload(
+            filename=file.filename,
+            file_bytes=file_bytes,
+            content_type=file.content_type,
+            max_size_mb=20.0
+        )
         
         # Calculate image md5 hash for duplicate detection
         file_hash = hashlib.md5(file_bytes).hexdigest()
@@ -136,8 +145,31 @@ async def upload_photos(
         db.add(new_photo)
         uploaded_photos.append(new_photo)
         
-        # Trigger background face analysis using PyTorch
-        background_tasks.add_task(process_photo_faces, photo_id, file_bytes)
+        # Create a BackgroundJob entry to track execution
+        new_job = BackgroundJob(
+            task_name="app.workers.face_tasks.process_face_matching",
+            queue_name="high",
+            status="queued",
+            initiated_by=current_user.id,
+            meta={"args": {"photo_id": str(photo_id)}}
+        )
+        db.add(new_job)
+        await db.commit()
+        await db.refresh(new_job)
+
+        # Trigger Celery background worker asynchronously
+        try:
+            celery_task = process_face_matching.apply_async(
+                kwargs={"photo_id": str(photo_id), "job_id": str(new_job.id)},
+                queue="high"
+            )
+            new_job.task_id = celery_task.id
+        except Exception as celery_err:
+            logger.error(f"Failed to queue Celery face matching task: {celery_err}")
+            # Fallback to local background task if Redis is down so upload never fails
+            new_job.status = "failed"
+            new_job.error_message = f"Failed to queue Celery worker: {celery_err}"
+            background_tasks.add_task(process_photo_faces, photo_id, file_bytes)
 
     await db.commit()
     
@@ -153,13 +185,15 @@ async def upload_banner_file(
     current_user: User = Depends(get_current_user)
 ):
     """Allows authenticated users to upload a custom banner image to Supabase Storage and returns the public url."""
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be an image."
-        )
-        
     file_bytes = await file.read()
+    
+    # Enforce security validation (max 20MB for images)
+    security_service.validate_upload(
+        filename=file.filename,
+        file_bytes=file_bytes,
+        content_type=file.content_type,
+        max_size_mb=20.0
+    )
     banner_id = uuid.uuid4()
     storage_path = f"banners/{banner_id}.jpg"
     

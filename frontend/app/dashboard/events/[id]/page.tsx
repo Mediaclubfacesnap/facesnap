@@ -7,7 +7,8 @@ import Navbar from "@/components/Navbar";
 import { motion } from "framer-motion";
 import {
   ChevronRight, MapPin, Calendar, ShieldCheck,
-  Loader2, Camera, Eye, FileText, Upload, Radio, Archive
+  Loader2, Camera, Eye, FileText, Upload, Radio, Archive,
+  Check, Clock
 } from "lucide-react";
 
 interface EventData {
@@ -19,10 +20,15 @@ interface EventData {
   date: string;
   status: string;
   cover_url?: string | null;
+  category?: string | null;
+  max_participants?: number | null;
+  registration_deadline?: string | null;
 }
 
 const statusConfig: Record<string, { icon: typeof FileText; color: string; label: string }> = {
   draft: { icon: FileText, color: "text-gray-400 bg-gray-500/10 border-gray-500/20", label: "Draft" },
+  published: { icon: Radio, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", label: "Published" },
+  upcoming: { icon: Radio, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", label: "Upcoming" },
   uploading: { icon: Upload, color: "text-amber-400 bg-amber-500/10 border-amber-500/20", label: "Uploading" },
   processing: { icon: Loader2, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20", label: "Processing" },
   live: { icon: Radio, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", label: "Live" },
@@ -32,11 +38,113 @@ const statusConfig: Record<string, { icon: typeof FileText; color: string; label
 export default function PublicEventDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, token, user } = useAuthStore();
   const eventId = params.id as string;
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState<any | null>(null);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+  const [isRegistering, setIsRegistering] = useState(false);
+
+  const getDeadlineText = (deadlineStr: string | null | undefined) => {
+    if (!deadlineStr) return null;
+    const deadline = new Date(deadlineStr);
+    const now = new Date();
+    const diffMs = deadline.getTime() - now.getTime();
+    if (diffMs <= 0) return null;
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    if (diffDays > 0) return `⏰ Registration closes in: ${diffDays}d ${diffHours}h`;
+    return `⏰ Registration closes in: ${diffHours}h`;
+  };
+
+  const fetchDetails = async () => {
+    if (!token) return;
+    try {
+      const statsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${eventId}/stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (statsRes.ok) {
+        setStats(await statsRes.json());
+      }
+
+      const partsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${eventId}/participants`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (partsRes.ok) {
+        const partsData = await partsRes.json();
+        setIsRegistered(partsData.some((p: any) => p.user_id === user?.id));
+      }
+
+      const wlRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${eventId}/waitlist`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (wlRes.ok) {
+        const wlData = await wlRes.json();
+        const wlEntry = wlData.find((w: any) => w.user_id === user?.id);
+        setWaitlistPosition(wlEntry ? wlEntry.position : null);
+      }
+    } catch (err) {
+      console.error("Failed to load registration details:", err);
+    }
+  };
+
+  const handleRegister = async () => {
+    if (!token) return;
+    setIsRegistering(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${eventId}/register`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === "waitlisted") {
+          alert(`You have been waitlisted at queue position #${data.position}!`);
+          setWaitlistPosition(data.position);
+          setIsRegistered(false);
+        } else {
+          alert("Successfully registered for this event!");
+          setIsRegistered(true);
+          setWaitlistPosition(null);
+        }
+        await fetchDetails();
+      } else {
+        const data = await res.json();
+        alert(data.detail || "Failed to register.");
+      }
+    } catch (err) {
+      console.error("Registration error:", err);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
+  const handleCancelRegistration = async () => {
+    if (!token || !confirm("Are you sure you want to cancel your spot?")) return;
+    setIsRegistering(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/${eventId}/register`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        alert("Registration / Waitlist successfully cancelled.");
+        setIsRegistered(false);
+        setWaitlistPosition(null);
+        await fetchDetails();
+      } else {
+        const data = await res.json();
+        alert(data.detail || "Failed to cancel.");
+      }
+    } catch (err) {
+      console.error("Cancellation error:", err);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -44,7 +152,8 @@ export default function PublicEventDetailsPage() {
       return;
     }
     fetchEvent();
-  }, [eventId, isAuthenticated]);
+    fetchDetails();
+  }, [eventId, isAuthenticated, token]);
 
   const fetchEvent = async () => {
     try {
@@ -104,8 +213,13 @@ export default function PublicEventDetailsPage() {
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-[#030712]/70 to-transparent" />
 
-              {/* Status Badge */}
-              <div className="absolute top-5 right-5">
+              {/* Status & Category Badges */}
+              <div className="absolute top-5 right-5 flex items-center gap-2">
+                {event.category && (
+                  <span className="text-[10px] font-bold px-3 py-1.5 rounded-full border border-primary/20 bg-primary/10 text-primary uppercase tracking-wider">
+                    {event.category}
+                  </span>
+                )}
                 <span className={`text-xs font-medium px-3 py-1.5 rounded-full border inline-flex items-center gap-1.5 ${status.color}`}>
                   <StatusIcon className="w-3 h-3" />
                   {status.label}
@@ -121,11 +235,11 @@ export default function PublicEventDetailsPage() {
             </div>
 
             {/* Event Metadata Card */}
-            <div className="p-6 rounded-xl glass-panel border border-white/[0.06]">
-              <p className="text-base text-gray-400 leading-relaxed mb-5">
+            <div className="p-6 rounded-xl glass-panel border border-white/[0.06] space-y-6">
+              <p className="text-base text-gray-400 leading-relaxed">
                 {event.description}
               </p>
-              <div className="flex flex-wrap items-center gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-white/[0.04]">
                 <div className="flex items-center gap-2.5">
                   <div className="p-1.5 rounded-md bg-primary/[0.08]">
                     <MapPin className="w-4 h-4 text-primary" />
@@ -154,33 +268,188 @@ export default function PublicEventDetailsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Capacity Progress Bar and Warnings */}
+              {(() => {
+                const capacity = event.max_participants || 0;
+                const registered = stats?.registered || 0;
+                const fillPct = capacity > 0 ? Math.min(100, (registered / capacity) * 100) : 0;
+                const seatsLeft = capacity > 0 ? Math.max(0, capacity - registered) : 0;
+
+                if (capacity === 0) return null;
+
+                return (
+                  <div className="space-y-2.5 pt-4 border-t border-white/[0.04]">
+                    <div className="flex justify-between text-xs font-bold">
+                      <span className="text-gray-400">█████████░ {fillPct.toFixed(0)}% Capacity Filled</span>
+                      {registered >= capacity ? (
+                        <span className="text-secondary font-extrabold flex items-center gap-1">⛔ Event Full</span>
+                      ) : fillPct >= 95 ? (
+                        <span className="text-secondary font-extrabold flex items-center gap-1 animate-pulse">🔥 Almost Full</span>
+                      ) : fillPct >= 80 ? (
+                        <span className="text-amber-400 font-bold flex items-center gap-1">⚠ Only {seatsLeft} seats left</span>
+                      ) : (
+                        <span className="text-emerald-400 font-medium">{seatsLeft} seats left</span>
+                      )}
+                    </div>
+                    <div className="w-full h-2 bg-white/[0.04] rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-350 ${
+                          registered >= capacity ? "bg-red-500" :
+                          fillPct >= 95 ? "bg-orange-500" :
+                          fillPct >= 80 ? "bg-amber-400" : "bg-primary"
+                        }`}
+                        style={{ width: `${fillPct}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
-            {/* Find My Photos CTA */}
+            {/* Event Registration Card */}
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-8 rounded-2xl glass-panel border border-primary/15 max-w-2xl mx-auto text-center space-y-5"
+              className="p-8 rounded-2xl glass-panel border border-white/[0.08] max-w-2xl mx-auto text-center space-y-5"
             >
               <div className="w-14 h-14 rounded-xl bg-primary/[0.08] border border-primary/15 flex items-center justify-center mx-auto">
                 <ShieldCheck className="w-7 h-7 text-primary" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-display font-semibold text-gray-50">Find My Photos</h3>
-                <p className="text-base text-gray-400 max-w-md mx-auto leading-relaxed">
-                  FaceSnap uses realtime biometric face verification with anti-spoofing to locate all photos you appear in.
-                </p>
+                <h3 className="text-xl font-display font-semibold text-gray-50">Registration Desk</h3>
+                {event.registration_deadline && (
+                  <div className="text-xs text-gray-400">
+                    {getDeadlineText(event.registration_deadline) ? (
+                      <span className="font-semibold text-amber-400 bg-amber-400/5 border border-amber-400/10 px-2.5 py-1 rounded-full">
+                        {getDeadlineText(event.registration_deadline)}
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-red-500 bg-red-500/5 border border-red-500/10 px-2.5 py-1 rounded-full animate-pulse">
+                        ⛔ Registration Closed
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-              
-              <button
-                type="button"
-                onClick={() => router.push(`/dashboard/events/${eventId}/verify`)}
-                className="inline-flex items-center justify-center gap-2 h-12 px-8 rounded-xl bg-primary hover:bg-cyan-400 text-[#030712] text-base font-semibold transition-all w-full max-w-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <Camera className="w-5 h-5" />
-                <span>Start Face Verification</span>
-              </button>
+
+              <div className="w-full max-w-md mx-auto">
+                {/* Dynamic State Buttons */}
+                {(() => {
+                  const deadlinePassed = event.registration_deadline && new Date().getTime() > new Date(event.registration_deadline).getTime();
+                  const isClosed = (event.status !== "published" && event.status !== "upcoming") || deadlinePassed;
+                  const capacity = event.max_participants || 0;
+                  const registered = stats?.registered || 0;
+                  
+                  if (event.status === "draft") {
+                    return null;
+                  }
+
+                  if (isRegistered) {
+                    return (
+                      <div className="space-y-3">
+                        <div className="p-3.5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center justify-center gap-2">
+                          <Check className="w-4 h-4" />
+                          <span>You are successfully registered for this event!</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCancelRegistration}
+                          disabled={isRegistering}
+                          className="w-full h-11 px-8 rounded-xl bg-red-500/10 hover:bg-red-500 hover:text-black border border-red-500/20 text-red-500 text-xs font-bold transition-all disabled:opacity-50"
+                        >
+                          Cancel Registration
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (waitlistPosition !== null) {
+                    return (
+                      <div className="space-y-3">
+                        <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 text-amber-400 text-xs font-bold flex items-center justify-center gap-2">
+                          <Clock className="w-4 h-4" />
+                          <span>You are on the waitlist at Position #{waitlistPosition}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleCancelRegistration}
+                          disabled={isRegistering}
+                          className="w-full h-11 px-8 rounded-xl bg-red-500/10 hover:bg-red-500 hover:text-black border border-red-500/20 text-red-500 text-xs font-bold transition-all disabled:opacity-50"
+                        >
+                          Leave Waitlist
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  if (isClosed) {
+                    return (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full h-11 rounded-xl bg-white/[0.04] border border-white/[0.08] text-gray-500 text-xs font-bold cursor-not-allowed"
+                      >
+                        Registration Closed
+                      </button>
+                    );
+                  }
+
+                  const isFull = capacity > 0 && registered >= capacity;
+                  if (isFull) {
+                    return (
+                      <button
+                        type="button"
+                        onClick={handleRegister}
+                        disabled={isRegistering}
+                        className="w-full h-11 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold transition-all disabled:opacity-50 shadow-[0_0_15px_rgba(251,191,36,0.15)]"
+                      >
+                        {isRegistering ? <Loader2 className="w-4.5 h-4.5 animate-spin mx-auto" /> : "Join Waitlist"}
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={handleRegister}
+                      disabled={isRegistering}
+                      className="w-full h-11 rounded-xl bg-primary hover:bg-white text-black text-xs font-bold transition-all disabled:opacity-50 shadow-[0_0_15px_rgba(0,229,255,0.15)]"
+                    >
+                      {isRegistering ? <Loader2 className="w-4.5 h-4.5 animate-spin mx-auto" /> : "Register Event"}
+                    </button>
+                  );
+                })()}
+              </div>
             </motion.div>
+
+            {/* Find My Photos CTA */}
+            {isRegistered && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-8 rounded-2xl glass-panel border border-primary/15 max-w-2xl mx-auto text-center space-y-5"
+              >
+                <div className="w-14 h-14 rounded-xl bg-primary/[0.08] border border-primary/15 flex items-center justify-center mx-auto">
+                  <Camera className="w-7 h-7 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-display font-semibold text-gray-50">Find My Photos</h3>
+                  <p className="text-base text-gray-400 max-w-md mx-auto leading-relaxed">
+                    FaceSnap uses realtime biometric face verification with anti-spoofing to locate all photos you appear in.
+                  </p>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => router.push(`/dashboard/events/${eventId}/verify`)}
+                  className="inline-flex items-center justify-center gap-2 h-12 px-8 rounded-xl bg-primary hover:bg-cyan-400 text-[#030712] text-base font-semibold transition-all w-full max-w-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>Start Face Verification</span>
+                </button>
+              </motion.div>
+            )}
           </div>
         )}
       </div>

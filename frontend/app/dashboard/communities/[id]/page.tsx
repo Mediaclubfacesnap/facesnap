@@ -8,8 +8,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Calendar, MapPin, Loader2,
   ArrowLeft, CheckCircle2, ChevronDown, ChevronRight, X,
-  FileText, Upload, Radio, Archive
+  FileText, Upload, Radio, Archive, Key, AlertCircle
 } from "lucide-react";
+
 
 interface Community {
   id: string;
@@ -66,6 +67,66 @@ export default function PublicCommunityDetails() {
   const [alertMessage, setAlertMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [joinRequestStatus, setJoinRequestStatus] = useState<string | null>(null);
+  const [isSubmittingJoin, setIsSubmittingJoin] = useState(false);
+
+  const [isForbidden, setIsForbidden] = useState(false);
+  const [showJoinCodeModal, setShowJoinCodeModal] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState("");
+  const [isJoiningCode, setIsJoiningCode] = useState(false);
+  const [joinCodeError, setJoinCodeError] = useState("");
+  const [joinCodeSuccess, setJoinCodeSuccess] = useState("");
+
+  const handleJoinByCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinCodeInput.trim()) return;
+
+    setIsJoiningCode(true);
+    setJoinCodeError("");
+    setJoinCodeSuccess("");
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/join-by-code/${joinCodeInput.trim()}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Invalid invite code.");
+      }
+
+      if (data.joined) {
+        setJoinCodeSuccess(data.message || "Successfully joined community!");
+        setTimeout(() => {
+          setShowJoinCodeModal(false);
+          setJoinCodeInput("");
+          setJoinCodeSuccess("");
+          setIsForbidden(false);
+          fetchData();
+          router.push(`/dashboard/my-groups/${communityId}`);
+        }, 1500);
+      } else {
+        setJoinCodeSuccess(data.message || "Join request submitted.");
+        setJoinRequestStatus("pending");
+        setTimeout(() => {
+          setShowJoinCodeModal(false);
+          setJoinCodeInput("");
+          setJoinCodeSuccess("");
+        }, 3000);
+      }
+    } catch (err: any) {
+      setJoinCodeError(err.message || "Failed to join community.");
+    } finally {
+      setIsJoiningCode(false);
+    }
+  };
+
+
   const defaultEventCovers: Record<string, string> = {
     Technology: "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=600&auto=format&fit=crop",
     Education: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?q=80&w=600&auto=format&fit=crop",
@@ -76,21 +137,48 @@ export default function PublicCommunityDetails() {
 
   const fetchData = async () => {
     try {
-      const commRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}`);
+      const commRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (commRes.status === 403) {
+        setIsForbidden(true);
+        setIsLoading(false);
+        return;
+      }
       if (!commRes.ok) throw new Error("Community not found.");
       const commData = await commRes.json();
       setCommunity(commData);
 
-      const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/roles`);
+      const rolesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/roles`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (rolesRes.ok) {
         const rolesData = await rolesRes.json();
         setRoles(rolesData);
       }
 
-      const eventsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/community/${communityId}`);
+      const eventsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/events/community/${communityId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json();
         setEvents(eventsData);
+      }
+
+      const myRolesRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-roles`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (myRolesRes.ok) {
+        const rolesMap = await myRolesRes.json();
+        setCurrentUserRole(rolesMap[communityId] || null);
+      }
+
+      const myJoinReqsRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-join-requests`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (myJoinReqsRes.ok) {
+        const reqsMap = await myJoinReqsRes.json();
+        setJoinRequestStatus(reqsMap[communityId] || null);
       }
     } catch (err) {
       console.error("Error loading community discovery details:", err);
@@ -107,7 +195,7 @@ export default function PublicCommunityDetails() {
     fetchData();
   }, [communityId, isAuthenticated]);
 
-  const submitAccessRequest = async (requestType: "contributor" | "upload" | "gallery" | "member") => {
+  const submitAccessRequest = async (requestType: "moderator" | "admin" | "host") => {
     setShowMoreMenu(false);
     setRequestSentAlert(false);
     try {
@@ -134,6 +222,35 @@ export default function PublicCommunityDetails() {
     }
   };
 
+  const submitJoinRequest = async () => {
+    setIsSubmittingJoin(true);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${communityId}/join-request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ message: "I want to join this community as a participant" }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setJoinRequestStatus("pending");
+        setAlertMessage("Your request to join this community has been submitted.");
+        setRequestSentAlert(true);
+        setTimeout(() => setRequestSentAlert(false), 4000);
+      } else {
+        setAlertMessage(data.detail || "Unable to submit request.");
+        setRequestSentAlert(true);
+        setTimeout(() => setRequestSentAlert(false), 4000);
+      }
+    } catch (err) {
+      console.error("Join request failed:", err);
+    } finally {
+      setIsSubmittingJoin(false);
+    }
+  };
+
   const handleContactHost = () => {
     setShowMoreMenu(false);
     const hostMember = roles.find((r) => r.role === "host");
@@ -152,6 +269,120 @@ export default function PublicCommunityDetails() {
     ) || [];
 
   if (!isAuthenticated) return null;
+
+  if (isForbidden) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#030712] text-gray-50">
+        <Navbar />
+        <div className="flex-grow flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md rounded-2xl glass-panel border border-white/[0.06] bg-[#050b18]/60 p-8 text-center flex flex-col items-center shadow-2xl relative overflow-hidden"
+          >
+            <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500/80 to-amber-500/80" />
+            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-6 border border-red-500/20 text-red-500 animate-pulse">
+              <span className="text-3xl">🔒</span>
+            </div>
+            
+            <h1 className="text-2xl font-display font-bold text-gray-50 mb-3">Private Community</h1>
+            <p className="text-sm text-gray-400 mb-8 max-w-sm leading-relaxed">
+              This community is invisible and restricted to approved participants only. You must scan a QR code or submit an access request to enter.
+            </p>
+
+            {joinRequestStatus === "pending" ? (
+              <div className="w-full p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 font-semibold text-sm flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>⏳ Access Request Pending...</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 w-full">
+                <button
+                  onClick={submitJoinRequest}
+                  disabled={isSubmittingJoin}
+                  type="button"
+                  className="w-full py-3 rounded-xl bg-primary text-black hover:bg-cyan-400 text-sm font-semibold transition-all shadow-lg shadow-primary/10 flex items-center justify-center gap-2"
+                >
+                  {isSubmittingJoin ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4" />
+                      <span>Request Access</span>
+                    </>
+                  )}
+                </button>
+                
+                <button
+                  onClick={() => setShowJoinCodeModal(true)}
+                  type="button"
+                  className="w-full py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] text-gray-300 text-sm font-semibold transition-all flex items-center justify-center gap-2"
+                >
+                  <Key className="w-4 h-4 text-gray-400" />
+                  <span>Enter Invite Code</span>
+                </button>
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Invite Code Input Dialog */}
+        <AnimatePresence>
+          {showJoinCodeModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowJoinCodeModal(false)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-sm rounded-2xl glass-panel border border-white/[0.08] p-8 relative z-10"
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowJoinCodeModal(false)}
+                  className="absolute top-4 right-4 text-gray-500 hover:text-gray-300"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+                <h3 className="text-base font-semibold text-white mb-2">Enter Invite Code</h3>
+                <p className="text-xs text-gray-400 mb-6">Type a community invite code to join immediately.</p>
+                
+                {joinCodeError && (
+                  <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
+                    {joinCodeError}
+                  </div>
+                )}
+                
+                {joinCodeSuccess && (
+                  <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+                    {joinCodeSuccess}
+                  </div>
+                )}
+
+                <form onSubmit={handleJoinByCode} className="space-y-4">
+                  <input
+                    type="text"
+                    required
+                    value={joinCodeInput}
+                    onChange={(e) => setJoinCodeInput(e.target.value)}
+                    placeholder="e.g. WELCOME2026"
+                    className="w-full h-12 px-4 rounded-lg bg-[#0a0f1a] border border-white/[0.08] focus:border-primary focus:outline-none text-base text-gray-50 placeholder-gray-600 text-center font-mono font-bold uppercase tracking-wider"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isJoiningCode || !joinCodeInput.trim()}
+                    className="w-full py-3 rounded-lg bg-primary hover:bg-cyan-400 text-black font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {isJoiningCode ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify & Join"}
+                  </button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#030712] text-gray-50">
@@ -224,13 +455,32 @@ export default function PublicCommunityDetails() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => submitAccessRequest("contributor")}
-                    type="button"
-                    className="h-10 px-4 rounded-lg text-sm font-semibold bg-primary text-[#030712] hover:bg-cyan-400 transition-colors"
-                  >
-                    Request Access
-                  </button>
+                  {currentUserRole ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="h-10 px-4 rounded-lg text-sm font-semibold bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 cursor-not-allowed"
+                    >
+                      Joined
+                    </button>
+                  ) : joinRequestStatus === "pending" ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="h-10 px-4 rounded-lg text-sm font-semibold bg-amber-500/10 border border-amber-500/25 text-amber-400 cursor-not-allowed"
+                    >
+                      Request Sent
+                    </button>
+                  ) : (
+                    <button
+                      onClick={submitJoinRequest}
+                      type="button"
+                      disabled={isSubmittingJoin}
+                      className="h-10 px-4 rounded-lg text-sm font-semibold bg-primary text-[#030712] hover:bg-cyan-400 transition-colors disabled:opacity-50"
+                    >
+                      {isSubmittingJoin ? "Joining..." : "Join Community"}
+                    </button>
+                  )}
                   <button
                     onClick={handleContactHost}
                     type="button"
@@ -264,7 +514,7 @@ export default function PublicCommunityDetails() {
                           >
                             <button
                               type="button"
-                              onClick={() => submitAccessRequest("upload")}
+                              onClick={() => submitAccessRequest("moderator")}
                               className="w-full px-3 py-2.5 text-left text-sm text-gray-300 hover:bg-white/[0.04] rounded-lg transition-colors"
                               role="menuitem"
                             >

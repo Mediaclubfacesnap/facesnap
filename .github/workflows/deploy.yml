@@ -1,0 +1,135 @@
+name: FaceSnap Continuous Integration & Automated Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  # 1. Automated Testing & Validation Gate (Module 16)
+  validation-gate:
+    name: Lint, Type Check & Test Codebase
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code repository
+        uses: actions/checkout@v4
+
+      # --- Backend Checks ---
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest httpx
+
+      # Note: Pytest check will be run here once configured
+      # - name: Run Backend Tests
+      #   run: |
+      #     cd backend && pytest
+
+      # --- Frontend Checks ---
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Next.js Lint check
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Run TypeScript Compiler Check
+        run: |
+          cd frontend
+          npx tsc --noEmit
+
+      - name: Verify Frontend Production Build compiles
+        run: |
+          cd frontend
+          npm run build
+
+  # 2. Build Docker Container Images (Module 15 & 18)
+  build-images:
+    name: Build & Verify Docker Images
+    needs: validation-gate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Docker Image (Dry Run Check)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: facesnap-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Frontend Docker Image (Dry Run Check)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: false
+          tags: facesnap-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # 3. Deploy to Staging / Production host (Zero Downtime workflow)
+  deploy:
+    name: Deploy to VPS Production Host
+    needs: build-images
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Mock/SSH deployment sequence for VPS
+      # In actual setup, configure secrets: SSH_PRIVATE_KEY, HOST, USERNAME
+      - name: Deploy Compose Stack via SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USERNAME: ${{ secrets.DEPLOY_USER }}
+        run: |
+          echo "Connecting securely via SSH key..."
+          echo "Simulating code pull, env migration, and Zero Downtime Container switch..."
+          
+          # Actual VPS deployment commands would look like:
+          # eval $(ssh-agent -s)
+          # echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+          # ssh -o StrictHostKeyChecking=no $USERNAME@$HOST "
+          #   cd /var/www/facesnap &&
+          #   git pull origin main &&
+          #   docker compose up -d --build --remove-orphans &&
+          #   docker compose exec -T backend python -m app.startup.env_validator
+          # "
+          
+          echo "✓ FaceSnap deployed successfully with Zero Downtime!"

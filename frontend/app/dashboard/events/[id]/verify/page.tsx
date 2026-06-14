@@ -8,13 +8,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { 
   Camera, ShieldCheck, ShieldAlert, Sparkles, Loader2, 
-  ChevronRight, RefreshCw, CheckCircle2, ScanFace, Activity, Eye
+  ChevronRight, RefreshCw, CheckCircle2, ScanFace, Activity, Eye, FlipHorizontal
 } from "lucide-react";
 
 export default function FaceVerification() {
   const params = useParams();
   const router = useRouter();
-  const { token, isAuthenticated } = useAuthStore();
+  const { token, isAuthenticated, user } = useAuthStore();
   const eventId = params.id as string;
 
   // Video Ref & Stream State
@@ -22,6 +22,7 @@ export default function FaceVerification() {
   const streamRef = useRef<MediaStream | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState(false);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
 
   // Verification & Checklist States
   const [isVerifying, setIsVerifying] = useState(false);
@@ -46,11 +47,13 @@ export default function FaceVerification() {
       return;
     }
 
-    // Enable Camera Stream automatically on mount
     const enableCamera = async () => {
       try {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+        }
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 480, height: 480, facingMode: "user" },
+          video: { width: 480, height: 480, facingMode },
           audio: false
         });
         setStream(mediaStream);
@@ -74,7 +77,7 @@ export default function FaceVerification() {
         streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, facingMode]);
 
   // CONTINUOUS AUTOMATIC MULTI-FRAME SCANNING LOOP:
   // Once the webcam stream is active, wait 1.2s, then automatically run frame captures in a loop
@@ -219,7 +222,7 @@ export default function FaceVerification() {
       });
       setVerificationStatus("success");
       setStatusMessage("Face verified successfully! Found your personalized event photos.");
-      
+
       // Stop the webcam track immediately
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
@@ -266,7 +269,7 @@ export default function FaceVerification() {
     if (!streamRef.current) {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 480, height: 480, facingMode: "user" },
+          video: { width: 480, height: 480, facingMode },
           audio: false
         });
         setStream(mediaStream);
@@ -376,6 +379,17 @@ export default function FaceVerification() {
                     )}
                   </AnimatePresence>
                 </div>
+              )}
+
+              {/* Camera Flip Button */}
+              {!cameraError && (
+                <button
+                  onClick={() => setFacingMode(prev => prev === "user" ? "environment" : "user")}
+                  className="absolute bottom-4 right-4 p-2 bg-[#030712]/50 hover:bg-[#030712]/80 border border-white/10 rounded-full text-white backdrop-blur-md transition-all z-30"
+                  aria-label="Flip Camera"
+                >
+                  <FlipHorizontal className="w-5 h-5" />
+                </button>
               )}
             </div>
 

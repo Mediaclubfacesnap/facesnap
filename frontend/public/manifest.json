@@ -1,0 +1,46 @@
+{
+  "name": "FaceSnap",
+  "short_name": "FaceSnap",
+  "description": "Cinematic AI Memory Retrieval OS",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Photos",
+      "short_name": "Photos",
+      "description": "View photos of yourself",
+      "url": "/dashboard/my-photos",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Messages",
+      "short_name": "Messages",
+      "description": "Open private chats",
+      "url": "/dashboard/chat",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Face Scan",
+      "short_name": "Scan",
+      "description": "Verify your identity",
+      "url": "/dashboard/verification",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

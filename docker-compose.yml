@@ -1,0 +1,181 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: facesnap-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: facesnap
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secure_db_pass_998
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d facesnap"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: facesnap-redis
+    restart: always
+    command: redis-server --requirepass redis_secure_cache_pass_887 --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a redis_secure_cache_pass_887 ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: facesnap-backend
+    restart: always
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres_secure_db_pass_998@postgres:5432/facesnap
+      - REDIS_URL=redis://:redis_secure_cache_pass_887@redis:6379/0
+      - JWT_SECRET=prod_ultra_secure_high_entropy_jwt_secret_token_change_me_in_vault
+      - SUPABASE_URL=https://bcahxnvuodsslmeqdnin.supabase.co
+      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYWh4bnZ1b2Rzc2xtZXFkbmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTUzMzMzNCwiZXhwIjoyMDk1MTA5MzM0fQ.4tWm0p1mxUCfGjoWvV74GD2zW-hbIsWPgl-WZQGgg88
+      - SUPABASE_BUCKET=facesnap-memories
+    volumes:
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: facesnap-celery-worker
+    restart: always
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=4
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres_secure_db_pass_998@postgres:5432/facesnap
+      - REDIS_URL=redis://:redis_secure_cache_pass_887@redis:6379/0
+      - JWT_SECRET=prod_ultra_secure_high_entropy_jwt_secret_token_change_me_in_vault
+      - SUPABASE_URL=https://bcahxnvuodsslmeqdnin.supabase.co
+      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYWh4bnZ1b2Rzc2xtZXFkbmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTUzMzMzNCwiZXhwIjoyMDk1MTA5MzM0fQ.4tWm0p1mxUCfGjoWvV74GD2zW-hbIsWPgl-WZQGgg88
+      - SUPABASE_BUCKET=facesnap-memories
+    volumes:
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  celery-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: facesnap-celery-beat
+    restart: always
+    command: celery -A app.workers.celery_app beat --loglevel=info
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres_secure_db_pass_998@postgres:5432/facesnap
+      - REDIS_URL=redis://:redis_secure_cache_pass_887@redis:6379/0
+      - JWT_SECRET=prod_ultra_secure_high_entropy_jwt_secret_token_change_me_in_vault
+      - SUPABASE_URL=https://bcahxnvuodsslmeqdnin.supabase.co
+      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYWh4bnZ1b2Rzc2xtZXFkbmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTUzMzMzNCwiZXhwIjoyMDk1MTA5MzM0fQ.4tWm0p1mxUCfGjoWvV74GD2zW-hbIsWPgl-WZQGgg88
+      - SUPABASE_BUCKET=facesnap-memories
+    volumes:
+      - logs_data:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -v grep | grep 'celery beat' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: facesnap-frontend
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost/api/v1
+      - NEXT_PUBLIC_SUPABASE_URL=https://bcahxnvuodsslmeqdnin.supabase.co
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJjYWh4bnZ1b2Rzc2xtZXFkbmluIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTUzMzMzNCwiZXhwIjoyMDk1MTA5MzM0fQ.4tWm0p1mxUCfGjoWvV74GD2zW-hbIsWPgl-WZQGgg88
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: facesnap-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/ssl-cert-snakeoil.pem:/etc/ssl/certs/ssl-cert-snakeoil.pem:ro
+      - ./infra/ssl-cert-snakeoil.key:/etc/ssl/private/ssl-cert-snakeoil.key:ro
+      - logs_data:/var/log/nginx
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t && wget --no-verbose --tries=1 --spider http://localhost || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    name: facesnap_postgres_data
+  redis_data:
+    name: facesnap_redis_data
+  uploads_data:
+    name: facesnap_uploads_data
+  logs_data:
+    name: facesnap_logs_data

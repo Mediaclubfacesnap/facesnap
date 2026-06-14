@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Users, Calendar, MapPin, Bell, Settings, ChevronRight,
   Sparkles, Loader2, Home, Search, Check, X, Camera, LogOut,
-  Compass, Globe, Zap, AlertCircle
+  Compass, Globe, Zap, AlertCircle, Shield, Trash2, Activity, MessageSquare
 } from "lucide-react";
 
 interface Community {
@@ -27,13 +27,27 @@ interface Invitation {
   status: string;
 }
 
+interface AppNotification {
+  id: string;
+  notification_type: string;
+  priority: string;
+  title: string;
+  message: string;
+  target_url?: string;
+  is_read: boolean;
+  notification_dismissed: boolean;
+  created_at: string;
+}
+
 function DashboardContent() {
   const router = useRouter();
-  const { user, token, isAuthenticated, logout } = useAuthStore();
+  const { user, token, isAuthenticated, logout, refreshUser } = useAuthStore();
 
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [myGroups, setMyGroups] = useState<Community[]>([]);
   const [myRoles, setMyRoles] = useState<Record<string, string>>({});
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -43,6 +57,12 @@ function DashboardContent() {
 
   const [activeTab, setActiveTab] = useState<"home" | "notifications" | "settings">("home");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAccessModal, setShowAccessModal] = useState(false);
+
+  // Deletion state
+  const [deleteCommunityId, setDeleteCommunityId] = useState<string | null>(null);
+  const [deleteCommunityTitle, setDeleteCommunityTitle] = useState("");
+  const [isDeletingCommunity, setIsDeletingCommunity] = useState(false);
 
   // Create Community form
   const [newTitle, setNewTitle] = useState("");
@@ -50,6 +70,17 @@ function DashboardContent() {
   const [newDescription, setNewDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState("");
+
+  // Request Access form
+  const [accessFullName, setAccessFullName] = useState("");
+  const [accessEmail, setAccessEmail] = useState("");
+  const [accessCollege, setAccessCollege] = useState("");
+  const [accessPurpose, setAccessPurpose] = useState("");
+  const [accessMembers, setAccessMembers] = useState("");
+  const [accessSocials, setAccessSocials] = useState("");
+  const [accessReason, setAccessReason] = useState("");
+  const [accessError, setAccessError] = useState("");
+  const [accessSuccess, setAccessSuccess] = useState(false);
 
   const categories = ["Technology", "Education", "Photography", "Music", "Sports", "Hackathon"];
 
@@ -76,22 +107,31 @@ function DashboardContent() {
       router.push("/auth/login");
       return;
     }
+    refreshUser();
     fetchData();
   }, [isAuthenticated]);
 
   const fetchData = async () => {
     try {
-      const [commRes, rolesRes, invRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/`),
+      const [commRes, rolesRes, invRes, groupsRes, notifRes] = await Promise.all([
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-roles`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
         fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-invitations`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/my-groups`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/notifications/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
-      if (rolesRes.status === 401 || invRes.status === 401) {
+      if (rolesRes.status === 401 || invRes.status === 401 || groupsRes.status === 401 || notifRes.status === 401) {
         logout();
         router.push("/auth/login");
         return;
@@ -100,6 +140,8 @@ function DashboardContent() {
       if (commRes.ok) setCommunities(await commRes.json());
       if (rolesRes.ok) setMyRoles(await rolesRes.json());
       if (invRes.ok) setInvitations(await invRes.json());
+      if (groupsRes.ok) setMyGroups(await groupsRes.json());
+      if (notifRes.ok) setNotifications(await notifRes.json());
     } catch (err) {
       console.error("Dashboard fetch error:", err);
     } finally {
@@ -107,41 +149,36 @@ function DashboardContent() {
     }
   };
 
-  const myGroups = communities.filter((c) => myRoles[c.id]);
-
   const handleCreateCommunity = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setCreateError("");
+    setIsSubmitting(true);
 
     try {
+      if (!token) throw new Error("No authentication token found.");
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          title: newTitle,
-          description: newDescription,
+          title: newTitle.trim(),
           category: newCategory,
-        }),
+          description: newDescription.trim()
+        })
       });
 
-      const data = await res.json();
-
-      if (res.status === 401) {
-        logout();
-        router.push("/auth/login");
-        return;
-      }
-
+      const contentType = res.headers.get("content-type");
+      const data = contentType?.includes("application/json") ? await res.json() : {};
       if (!res.ok) throw new Error(data.detail || "Failed to create community.");
 
+      setCommunities([data, ...communities]);
+      setMyGroups([data, ...myGroups]);
       setShowCreateModal(false);
       setNewTitle("");
       setNewDescription("");
-      router.push(`/dashboard/my-groups/${data.id}`);
     } catch (err: any) {
       setCreateError(err.message);
     } finally {
@@ -149,6 +186,75 @@ function DashboardContent() {
     }
   };
 
+  const handleRequestAccess = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAccessError("");
+    setAccessSuccess(false);
+    setIsSubmitting(true);
+
+    try {
+      if (!token) throw new Error("No authentication token found.");
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/access-requests`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          full_name: accessFullName,
+          email: accessEmail,
+          college: accessCollege,
+          purpose: accessPurpose,
+          expected_members: accessMembers,
+          social_links: accessSocials,
+          reason: accessReason
+        })
+      });
+
+      const contentType = res.headers.get("content-type");
+      const data = contentType?.includes("application/json") ? await res.json() : {};
+      if (!res.ok) throw new Error(data.detail || "Failed to submit request.");
+
+      setAccessSuccess(true);
+      setTimeout(() => {
+        setShowAccessModal(false);
+      }, 3000);
+    } catch (err: any) {
+      setAccessError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const confirmDeleteCommunity = (id: string, title: string) => {
+    setDeleteCommunityId(id);
+    setDeleteCommunityTitle(title);
+  };
+
+  const handleDeleteCommunity = async () => {
+    if (!deleteCommunityId || !token) return;
+    setIsDeletingCommunity(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/communities/${deleteCommunityId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setCommunities((prev) => prev.filter((c) => c.id !== deleteCommunityId));
+        setMyGroups((prev) => prev.filter((c) => c.id !== deleteCommunityId));
+        setDeleteCommunityId(null);
+      } else {
+        const contentType = res.headers.get("content-type");
+        const data = contentType?.includes("application/json") ? await res.json() : {};
+        alert(data.detail || "Failed to delete community.");
+      }
+    } catch (err) {
+      console.error("Delete community error:", err);
+    } finally {
+      setIsDeletingCommunity(false);
+    }
+  };
 
   const handleAcceptInvitation = async (invId: string) => {
     try {
@@ -183,6 +289,18 @@ function DashboardContent() {
     }
   };
 
+  const handleDismissNotification = async (notifId: string) => {
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/notifications/${notifId}/dismiss`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifications((prev) => prev.filter((n) => n.id !== notifId));
+    } catch (err) {
+      console.error("Dismiss notification error:", err);
+    }
+  };
+
   const handleSignOut = () => {
     logout();
     router.push("/");
@@ -197,7 +315,7 @@ function DashboardContent() {
       case "contributor":
         return { label: "Contributor", color: "bg-tertiary/10 border-tertiary/25 text-tertiary" };
       default:
-        return { label: "Member", color: "bg-white/[0.04] border-white/[0.08] text-gray-400" };
+        return { label: "Participant", color: "bg-white/[0.04] border-white/[0.08] text-gray-400" };
     }
   };
 
@@ -215,9 +333,16 @@ function DashboardContent() {
 
   const sidebarNavItems = [
     { key: "home", label: "Home", icon: Home },
-    { key: "discover", label: "Discover", icon: Compass, href: "/dashboard/discover" },
+    { key: "discover", label: "My Communities", icon: Users, href: "/dashboard/discover" },
+    { key: "search", label: "Smart Search", icon: Search, href: "/dashboard/search" },
+    { key: "timeline", label: "Personal Timeline", icon: Activity, href: "/dashboard/timeline" },
+    { key: "my-photos", label: "My Photos", icon: Camera, href: "/dashboard/my-photos" },
+    { key: "chat", label: "Private Chat", icon: MessageSquare, href: "/dashboard/chat" },
     { key: "notifications", label: "Notifications", icon: Bell, badge: pendingCount },
     { key: "settings", label: "Settings", icon: Settings },
+    ...(user?.platform_role === "super_admin"
+      ? [{ key: "admin", label: "Admin Panel", icon: Shield, href: "/dashboard/admin" }]
+      : []),
   ];
 
   return (
@@ -365,15 +490,26 @@ function DashboardContent() {
                       <p className="mt-2 text-base text-gray-400">
                         Your workspace is active and ready for photo retrieval.
                       </p>
-                      <div className="flex items-center gap-3 mt-5">
-                        <button
-                          type="button"
-                          onClick={() => setShowCreateModal(true)}
-                          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-[#030712] text-sm font-semibold hover:bg-cyan-400 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                          New Community
-                        </button>
+                      <div className="flex flex-wrap items-center gap-3 mt-5">
+                        {(user?.platform_role === "super_admin" || user?.platform_role === "admin" || user?.can_create_communities) ? (
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateModal(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-[#030712] text-sm font-semibold hover:bg-cyan-400 transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                            New Community
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowAccessModal(true)}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 text-sm font-semibold hover:bg-amber-500/20 border border-amber-500/25 transition-colors"
+                          >
+                            <AlertCircle className="w-4 h-4" />
+                            Request Host Access
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => router.push("/dashboard/discover")}
@@ -382,6 +518,16 @@ function DashboardContent() {
                           <Search className="w-4 h-4" />
                           Discover
                         </button>
+                        {user?.platform_role === "super_admin" && (
+                          <button
+                            type="button"
+                            onClick={() => router.push("/dashboard/admin")}
+                            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 text-amber-400 text-sm font-semibold hover:bg-amber-500/20 border border-amber-500/25 transition-colors"
+                          >
+                            <Shield className="w-4 h-4" />
+                            Admin Panel
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -434,6 +580,21 @@ function DashboardContent() {
                                 <img src={group.banner_url} alt="" className="w-full h-full object-cover opacity-30" />
                               )}
                               <div className="absolute inset-0 bg-gradient-to-t from-card to-transparent" />
+
+                              {/* Delete Button */}
+                              {(user?.platform_role === "super_admin" || user?.platform_role === "admin" || user?.id === group.creator_id) && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    confirmDeleteCommunity(group.id, group.title);
+                                  }}
+                                  className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/40 backdrop-blur border border-white/[0.08] hover:border-red-500/30 transition-all z-20"
+                                  aria-label={`Delete ${group.title}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-red-500 hover:text-red-400" />
+                                </button>
+                              )}
                             </div>
 
                             <div className="p-5 -mt-2 relative">
@@ -458,16 +619,29 @@ function DashboardContent() {
                       })}
 
                       {/* Create New Community Card */}
-                      <motion.div
-                        whileHover={{ y: -2 }}
-                        onClick={() => setShowCreateModal(true)}
-                        className="rounded-xl border-2 border-dashed border-white/[0.08] hover:border-primary/25 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-3 min-h-[200px]"
-                      >
-                        <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
-                          <Plus className="w-5 h-5 text-primary" />
-                        </div>
-                        <span className="text-sm font-medium text-gray-400">Create Community</span>
-                      </motion.div>
+                      {user?.platform_role === "super_admin" || user?.platform_role === "admin" || user?.can_create_communities ? (
+                        <motion.div
+                          whileHover={{ y: -2 }}
+                          onClick={() => setShowCreateModal(true)}
+                          className="rounded-xl border-2 border-dashed border-white/[0.08] hover:border-primary/25 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-3 min-h-[200px]"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] flex items-center justify-center">
+                            <Plus className="w-5 h-5 text-primary" />
+                          </div>
+                          <span className="text-sm font-medium text-gray-400">Create Community</span>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          whileHover={{ y: -2 }}
+                          onClick={() => setShowAccessModal(true)}
+                          className="rounded-xl border-2 border-dashed border-white/[0.08] hover:border-amber-500/25 cursor-pointer transition-all duration-300 flex flex-col items-center justify-center gap-3 min-h-[200px]"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-amber-500/[0.04] border border-amber-500/[0.08] flex items-center justify-center">
+                            <AlertCircle className="w-5 h-5 text-amber-500" />
+                          </div>
+                          <span className="text-sm font-medium text-gray-400">Request Access</span>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -481,17 +655,13 @@ function DashboardContent() {
                     Workspace Invitations
                   </h2>
 
-                  {invitations.filter((inv) => inv.status === "pending").length === 0 ? (
-                    <div className="p-16 rounded-xl glass-panel border border-dashed border-white/[0.06] text-center flex flex-col items-center gap-4">
-                      <Bell className="w-10 h-10 text-gray-700" />
-                      <span className="text-sm text-gray-400">No pending invitations</span>
-                    </div>
-                  ) : (
-                    <div className="grid gap-4">
+                  {/* INVITATIONS */}
+                  {invitations.filter((inv) => inv.status === "pending").length > 0 && (
+                    <div className="grid gap-4 mb-8">
                       {invitations
                         ?.filter((inv) => inv.status === "pending")
                         ?.map((inv) => (
-                          <div key={inv.id} className="p-5 rounded-xl glass-panel border border-white/[0.06] flex items-center justify-between gap-4">
+                          <div key={inv.id} className="p-5 rounded-xl glass-panel border border-primary/20 bg-primary/[0.02] flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-tertiary/10 border border-white/[0.08] flex items-center justify-center text-sm font-semibold text-primary">
                                 {(inv.community_title || "C").charAt(0)}
@@ -527,6 +697,76 @@ function DashboardContent() {
                         ))}
                     </div>
                   )}
+                  
+                  {/* GENERAL NOTIFICATIONS */}
+                  <h2 className="text-lg font-display font-semibold text-gray-50 flex items-center gap-2 pt-4 border-t border-white/[0.06]">
+                    <Activity className="w-5 h-5 text-tertiary" />
+                    Recent Activity
+                  </h2>
+                  
+                  {notifications.filter((n) => !n.notification_dismissed).length === 0 ? (
+                    <div className="p-16 rounded-xl glass-panel border border-dashed border-white/[0.06] text-center flex flex-col items-center gap-4">
+                      <Bell className="w-10 h-10 text-gray-700" />
+                      <span className="text-sm text-gray-400">No new notifications</span>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {notifications
+                        .filter((n) => !n.notification_dismissed)
+                        .map((notif) => {
+                           let Icon = Bell;
+                           let colorClass = "text-gray-400";
+                           let bgClass = "bg-white/[0.04]";
+                           
+                           if (notif.notification_type === "face_match") {
+                               Icon = Camera;
+                               colorClass = "text-primary";
+                               bgClass = "bg-primary/10 border-primary/20";
+                           } else if (notif.notification_type === "community") {
+                               Icon = Users;
+                               colorClass = "text-tertiary";
+                               bgClass = "bg-tertiary/10 border-tertiary/20";
+                           } else if (notif.notification_type === "security" || notif.priority === "critical") {
+                               Icon = Shield;
+                               colorClass = "text-red-400";
+                               bgClass = "bg-red-500/10 border-red-500/20";
+                           }
+                           
+                           return (
+                             <div key={notif.id} className="p-5 rounded-xl glass-panel border border-white/[0.06] flex items-center justify-between gap-4 group">
+                                <div className="flex items-center gap-4">
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${bgClass}`}>
+                                      <Icon className={`w-5 h-5 ${colorClass}`} />
+                                  </div>
+                                  <div>
+                                      <span className="text-base font-medium text-gray-50">{notif.title}</span>
+                                      <span className="block text-sm text-gray-400 mt-0.5">{notif.message}</span>
+                                      <span className="block text-xs text-gray-500 mt-1">{new Date(notif.created_at).toLocaleString()}</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {notif.target_url && (
+                                      <button
+                                        onClick={() => router.push(notif.target_url!)}
+                                        className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-sm text-gray-300 transition-all"
+                                      >
+                                        View
+                                      </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleDismissNotification(notif.id)}
+                                    className="p-1.5 rounded-lg bg-white/[0.04] hover:bg-red-500/10 hover:text-red-400 text-gray-400 transition-all"
+                                    aria-label="Dismiss notification"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                             </div>
+                           );
+                        })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -549,6 +789,21 @@ function DashboardContent() {
                         <span className="block text-sm text-gray-400 mt-1">{user?.email}</span>
                       </div>
                     </div>
+                  </div>
+                  <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <button
+                      onClick={() => router.push("/dashboard/settings/notifications")}
+                      className="p-5 rounded-xl glass-panel border border-white/[0.06] hover:border-primary/30 transition-all flex items-center gap-4 text-left group"
+                    >
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <Bell className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-semibold text-gray-50">Notification Preferences</h3>
+                        <p className="text-xs text-gray-400 mt-0.5">Manage alerts, emails, and digests.</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-500 ml-auto group-hover:text-primary transition-colors" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -675,6 +930,209 @@ function DashboardContent() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ====== REQUEST ACCESS MODAL ====== */}
+      <AnimatePresence>
+        {showAccessModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAccessModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="request-access-title"
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="w-full max-w-lg rounded-2xl glass-panel border border-white/[0.08] p-8 relative z-10 max-h-[90vh] overflow-y-auto"
+            >
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-orange-500 rounded-t-2xl" aria-hidden="true" />
+
+              <button
+                type="button"
+                onClick={() => setShowAccessModal(false)}
+                className="absolute top-4 right-4 text-gray-500 hover:text-gray-300 transition-colors"
+                aria-label="Close dialog"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                  <AlertCircle className="w-4 h-4 text-amber-500" />
+                </div>
+                <h2 id="request-access-title" className="text-lg font-display font-semibold text-gray-50">Request Access</h2>
+              </div>
+              <p className="text-sm text-gray-400 mb-6 mt-2">Submit a request to become a Community Host.</p>
+
+              {accessError && (
+                <div className="mb-4 p-3 rounded-lg bg-secondary/10 border border-secondary/20 text-sm text-secondary font-medium flex items-center gap-2" role="alert">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {accessError}
+                </div>
+              )}
+
+              {accessSuccess ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Check className="w-8 h-8 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-medium text-white mb-2">Request Submitted</h3>
+                  <p className="text-gray-400">An admin will review your request shortly.</p>
+                </div>
+              ) : (
+                <form onSubmit={handleRequestAccess} className="space-y-5">
+                  <div className="space-y-2">
+                    <label htmlFor="accessFullName" className="text-sm font-medium text-gray-200">Full Name</label>
+                    <input
+                      id="accessFullName"
+                      type="text"
+                      required
+                      value={accessFullName}
+                      onChange={(e) => setAccessFullName(e.target.value)}
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      placeholder="John Doe"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="accessEmail" className="text-sm font-medium text-gray-200">Email Address</label>
+                    <input
+                      id="accessEmail"
+                      type="email"
+                      required
+                      value={accessEmail}
+                      onChange={(e) => setAccessEmail(e.target.value)}
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      placeholder="john@example.com"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="accessCollege" className="text-sm font-medium text-gray-200">College / Organization</label>
+                    <input
+                      id="accessCollege"
+                      type="text"
+                      required
+                      value={accessCollege}
+                      onChange={(e) => setAccessCollege(e.target.value)}
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      placeholder="University Name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="accessPurpose" className="text-sm font-medium text-gray-200">Purpose of Community</label>
+                    <input
+                      id="accessPurpose"
+                      type="text"
+                      required
+                      value={accessPurpose}
+                      onChange={(e) => setAccessPurpose(e.target.value)}
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                      placeholder="e.g. Photography Club"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="accessReason" className="text-sm font-medium text-gray-200">Why do you need host access?</label>
+                    <textarea
+                      id="accessReason"
+                      required
+                      rows={3}
+                      value={accessReason}
+                      onChange={(e) => setAccessReason(e.target.value)}
+                      className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+                      placeholder="Explain your use case..."
+                    />
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAccessModal(false)}
+                      className="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-5 py-2.5 rounded-xl text-sm font-medium bg-amber-500 hover:bg-amber-400 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-amber-500/20"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Submitting...</span>
+                        </>
+                      ) : (
+                        <span>Submit Request</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DELETE COMMUNITY CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {deleteCommunityId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setDeleteCommunityId(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md rounded-2xl glass-panel border border-white/[0.08] p-8 relative z-10"
+            >
+              <div className="absolute top-0 inset-x-0 h-1 bg-red-500 rounded-t-2xl" aria-hidden="true" />
+              <h2 className="text-lg font-display font-semibold text-gray-50 mb-1">Delete Community</h2>
+              <p className="text-sm text-gray-400 mb-6">
+                Are you sure you want to delete this community? This action cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteCommunityId(null)}
+                  className="px-4 py-2 rounded-lg bg-white/[0.04] text-gray-300 hover:bg-white/[0.08] text-sm font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteCommunity}
+                  disabled={isDeletingCommunity}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition-all flex items-center gap-2"
+                >
+                  {isDeletingCommunity ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : "Delete"}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

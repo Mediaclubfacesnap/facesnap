@@ -707,9 +707,14 @@ export default function RootLandingPage() {
 
         {/* Legal footer */}
         <div className="max-w-7xl mx-auto pt-6 border-t border-white/[0.04] flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="text-xs text-gray-500">
-            © 2026 FaceSnap AI Inc. All rights reserved.
-          </span>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <span className="text-xs text-gray-500">
+              © 2026 FaceSnap AI Inc. All rights reserved.
+            </span>
+            <span className="text-xs text-gray-500 font-mono bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.04]">
+              v1.0.0
+            </span>
+          </div>
           <div className="flex items-center gap-6">
             <a href="#" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Privacy Policy</a>
             <a href="#" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Terms of Service</a>

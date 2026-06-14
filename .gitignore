@@ -1,12 +1,30 @@
+# =========================
+
+# FaceSnap .gitignore
+
+# =========================
+
+# -------------------------
+
 # Next.js / React
+
+# -------------------------
+
 node_modules/
 .next/
 out/
 build/
 dist/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+
+# -------------------------
 
 # Python caching & environments
-__pycache__/
+
+# -------------------------
+
+**pycache**/
 *.py[cod]
 *$py.class
 .venv/
@@ -17,23 +35,88 @@ ENV/
 .mypy_cache/
 .pytest_cache/
 
-# Local configuration files
-.env.local
+# -------------------------
 
+# Environment & Secrets
+
+# -------------------------
+
+.env
+.env.*
+.env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+backend/.env
+frontend/.env*
+.env.development
+.env.production
+.env.staging
+
+# -------------------------
+
 # Databases and storage
+
+# -------------------------
+
 *.db
 *.sqlite
 *.sqlite3
 storage/
 temp/
 
-# Logs and system files
+# -------------------------
+
+# Logs and runtime outputs
+
+# -------------------------
+
 *.log
+backend/*.log
+frontend/*.log
+
+*.txt
+backend/*.txt
+
+backend/startup_profile.json
+backend/uvicorn_log.txt
+backend/kill_output.txt
+backend/test_output.txt
+backend/pip_install_output.txt
+backend/uvicorn_kill_output.txt
+frontend/next_dev_log.txt
+
+# -------------------------
+
+# Test artifacts
+
+# -------------------------
+
+backend/test-results/
+frontend/test-results/
+coverage/
+htmlcov/
+
+# -------------------------
+
+# IDE / OS files
+
+# -------------------------
+
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# -------------------------
+
+# Local generated files
+
+# -------------------------
+
+*.pid
+*.seed
+*.tmp
+*.bak
+*.swp
